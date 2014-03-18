@@ -1,0 +1,34 @@
+TODO
+* Add real README, LICENSE
+	- Dependencies
+	- Purpose
+	- Instructions
+* Don't hard-code things
+	- host mountpoint
+	- disk/partition/image to add to VM
+	- device to mount in guest
+	- base VM name
+	- VM storage path
+	- VM group
+	- SSH key
+* Take command-line arguments
+	- Use config file too
+	- Pass things through to sshfs
+* Document VM creation: sudo, ssh, auth keys, persistent MAC, mountpoint, snapshot
+* Use smaller VM
+	- TinyCore?
+	- VM compression?
+* Work with non-raw media: Don't create raw VMDK if given an image
+	- Don't delete existing image!
+* Work on Linux hosts
+* Minimize use of sudo: Can probably create VMDK without it on OS X
+* Auto-mount something useful if nothing specified
+* Choose a port more carefully
+
+TEST
+* Do we unmount cleanly on host reboot?
+* Can multiple mounts happen at the same time?
+
+BUGS
+* sshfs has trouble with permission mapping, new files are owned by root
+* Boot is slow, can it be made faster?

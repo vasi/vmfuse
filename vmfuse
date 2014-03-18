@@ -1,0 +1,110 @@
+#!/usr/bin/ruby
+require 'pathname'
+require 'fileutils'
+
+class VM
+	SSHPort = 22
+	VBoxDir = 'VirtualBox VMs'
+	
+	BaseVM = 'vmfuse'
+	BaseSnapshot = 'vmfuse'
+	Group = '/vmfuse'
+	SSHPF = 'vmfuse'
+	UserHost = 'root@localhost'
+	VMMountPoint = 'mnt'
+	
+	def create_name(base)
+		base + '-' + rand(36**10).to_s(36)
+	end
+	def choose_port
+		1025 + rand(60000)
+	end
+	
+	attr_reader :name, :port
+	def initialize
+		@name = create_name(BaseVM)
+		@port = choose_port
+		
+		vbox('clonevm', BaseVM, '--snapshot', BaseSnapshot,
+			'--groups', Group, '--name', @name, '--options', 'link', '--register')
+		vbox('modifyvm', @name, '--natpf1',
+			SSHPF + ',tcp,,' + @port.to_s + ',,' + SSHPort.to_s)
+	end
+	
+	def basedir
+		group_dir = Group.sub(%r{^/*}, '')
+		Pathname.new(Dir.home) + VBoxDir + group_dir + @name
+	end
+	
+	def add_part(disk, part)
+		@part = part
+		vmdk = (basedir + 'part.vmdk').to_s
+		
+		system('sudo', 'VBoxManage', 'internalcommands', 'createrawvmdk',
+			'-filename', vmdk, '-rawdisk', disk, '-partitions', part.to_s)
+		system('sudo', 'chown', '-R', Process.uid.to_s, basedir.to_s)
+		system('sudo', 'chown', Process.uid.to_s, disk + 's' + part.to_s)
+		
+		vbox('storageattach', @name, '--storagectl', 'SATA', '--port', '1',
+			'--type', 'hdd', '--medium', vmdk)
+	end
+	
+	def vbox(*args)
+		system('VBoxManage', *args) or raise 'VBoxManage error'
+	end
+	def ssh(cmd, *args)
+		system(cmd, '-o', 'NoHostAuthenticationForLocalhost=yes', '-p', @port.to_s,
+			*args) or raise 'ssh error'
+	end
+	
+	def mount(mountpoint, dev = nil)
+		dev ||= '/dev/sdb' + @part.to_s
+		vbox('startvm', @name, '--type', 'headless')
+		ssh('ssh', UserHost, 'mount', dev, VMMountPoint)
+		
+		mount_wait(mountpoint) { cleanup }
+	end
+
+	def mount_wait(mountpoint, &cleanup_block)
+		dev = File.stat(mountpoint).dev
+
+		r, w = IO.pipe
+		
+		# This process runs sshfs, and then alerts our daemon on exit
+		fork do
+			r.close
+			sshfs(mountpoint)
+			w.close # alert daemon
+		end
+		
+		w.close
+		# Wait for mount to complete
+		loop { dev == File.stat(mountpoint).dev or break }
+		
+		Process.daemon
+		r.read
+		r.close
+		cleanup_block[]
+	end	
+	
+	def sshfs(mountpoint)
+		ssh('sshfs', '-f', UserHost + ':' + VMMountPoint, mountpoint)
+	end
+	
+	def cleanup
+		ssh('ssh', UserHost, 'umount', VMMountPoint)
+		ssh('ssh', UserHost, 'poweroff')
+		
+		begin
+			vbox('unregistervm', @name, '--delete')
+		rescue
+			sleep 1
+			retry
+		end
+		FileUtils.rm_r(basedir) if File.exist?(basedir)
+	end
+end
+
+vm = VM.new
+vm.add_part('/dev/disk0', 8)
+vm.mount('mnt', '/dev/fedora_hastings/root')
