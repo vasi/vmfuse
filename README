@@ -2,7 +2,8 @@ TODO
 * Add real README, LICENSE
 	- Dependencies
 	- Purpose
-	- Instructions
+	- Usage
+	- Compare to libguestfs
 * Don't hard-code things
 	- host mountpoint
 	- disk/partition/image to add to VM
@@ -24,10 +25,11 @@ TODO
 * Minimize use of sudo: Can probably create VMDK without it on OS X
 * Auto-mount something useful if nothing specified
 * Choose a port more carefully
+* Allow multiple disks and/or mounts
 
 TEST
 * Do we unmount cleanly on host reboot?
-* Can multiple mounts happen at the same time?
+* Can multiple separate mounts happen at the same time?
 
 BUGS
 * sshfs has trouble with permission mapping, new files are owned by root
