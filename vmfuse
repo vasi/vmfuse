@@ -13,9 +13,12 @@ class VM
 	SSHPF = 'vmfuse'
 	VMMountPoint = 'mnt'
 	
-	def create_name(base)
-		# TODO: Check if it exists already?
-		base + '-' + rand(36**10).to_s(36)
+	def choose_name(base)
+		loop do
+			name = base + '-' + rand(36**10).to_s(36)
+			# Short race condition between name choice and creation
+			return name unless all_vms.include? name
+		end
 	end
 	def choose_port
 		# TODO: Check if port is in use?
@@ -24,7 +27,7 @@ class VM
 	
 	attr_reader :name, :port
 	def initialize
-		@name = create_name(BaseVM)
+		@name = choose_name(BaseVM)
 		@port = choose_port
 		
 		manage('clonevm', BaseVM, '--snapshot', BaseSnapshot,
@@ -40,6 +43,11 @@ class VM
 		config = info[/^CfgFile=\"(.*)\"$/, 1] \
 			or raise "Can't determine VM directory"
 		File.dirname(config)
+	end
+	
+	# Get names all existing VMs
+	def all_vms
+		manage('list', 'vms').scan(/^"(.*)" \{[-\h]+\}/)
 	end
 	
 	def add_part(disk, part)
