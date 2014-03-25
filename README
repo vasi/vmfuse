@@ -15,9 +15,7 @@ TODO
 	- Use config file too
 	- Pass things through to sshfs
 * Document VM creation: sudo, ssh, auth keys, persistent MAC, mountpoint, snapshot
-* Use smaller VM
-	- TinyCore?
-	- VM compression?
+* Use smaller VM (TinyCore)
 * Work with non-raw media: Don't create raw VMDK if given an image
 	- Don't delete existing image!
 * Work on Linux hosts
