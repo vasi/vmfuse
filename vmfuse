@@ -33,6 +33,8 @@ class VM
 			SSHPF + ',tcp,,' + @port.to_s + ',,' + SSHPort.to_s)
 	end
 	
+	# Find the directory where the VM's files are stored.
+	# Usually something like "~/VirtualBox VMs".
 	def basedir
 		info = manage('showvminfo', '--machinereadable', @name)
 		config = info[/^CfgFile=\"(.*)\"$/, 1] \
