@@ -6,9 +6,7 @@ require 'open3'
 class VM
 	SSHPort = 22
 	SSHUserHost = 'root@localhost'
-	
-	VBoxDir = 'VirtualBox VMs'
-	
+		
 	BaseVM = 'vmfuse'
 	BaseSnapshot = 'vmfuse'
 	Group = '/vmfuse'
@@ -36,13 +34,16 @@ class VM
 	end
 	
 	def basedir
-		group_dir = Group.sub(%r{^/*}, '')
-		Pathname.new(Dir.home) + VBoxDir + group_dir + @name
+		info = manage('showvminfo', @name)
+		config = info[/^Config file:\s*(.*)$/, 1] \
+			or raise "Can't determine VM directory"
+		File.dirname(config)
 	end
 	
 	def add_part(disk, part)
 		@part = part
-		vmdk = (basedir + 'part.vmdk').to_s
+		vmdk = File.join(basedir, 'part.vmdk')
+		puts vmdk
 		
 		system('sudo', 'VBoxManage', 'internalcommands', 'createrawvmdk',
 			'-filename', vmdk, '-rawdisk', disk, '-partitions', part.to_s)

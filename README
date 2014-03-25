@@ -9,7 +9,6 @@ TODO
 	- disk/partition/image to add to VM
 	- device to mount in guest
 	- base VM name
-	- VM storage path
 	- VM group
 	- SSH key
 * Take command-line arguments
