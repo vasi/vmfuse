@@ -21,7 +21,6 @@ TODO
 * Work on Linux hosts
 * Minimize use of sudo: Can probably create VMDK without it on OS X
 * Auto-mount something useful if nothing specified
-* Choose a port more carefully
 * Allow multiple disks and/or mounts
 * Stop printing lots of info
 

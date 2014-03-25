@@ -2,10 +2,14 @@
 require 'pathname'
 require 'fileutils'
 require 'open3'
+require 'socket'
+require 'timeout'
 
 class VM
+	VMHost = 'localhost'
+	
 	SSHPort = 22
-	SSHUserHost = 'root@localhost'
+	SSHUserHost = 'root@' + VMHost
 		
 	BaseVM = 'vmfuse'
 	BaseSnapshot = 'vmfuse'
@@ -13,16 +17,32 @@ class VM
 	SSHPF = 'vmfuse'
 	VMMountPoint = 'mnt'
 	
+	# Choose a name for the temporary VM
 	def choose_name(base)
+		suffix_length = 10
+		suffix_base = 36
+		
 		loop do
-			name = base + '-' + rand(36**10).to_s(36)
+			name = base + '-' + rand(suffix_base ** suffix_length).to_s(suffix_base)
 			# Short race condition between name choice and creation
 			return name unless all_vms.include? name
 		end
 	end
+	
+	# Choose an unused port to access the VM via SSH
 	def choose_port
-		# TODO: Check if port is in use?
-		1025 + rand(60000)
+		port_range = 1024..65535
+		connect_timeout = 1
+		
+		loop do
+			begin
+				port = rand(port_range)
+				Timeout::timeout(connect_timeout) { TCPSocket.new(VMHost, port) }
+				# It's in use, loop again
+			rescue Timeout::Error, Errno::ECONNREFUSED, Errno::EHOSTUNREACH
+				return port # We found an unused port!
+			end
+		end
 	end
 	
 	attr_reader :name, :port
@@ -53,7 +73,6 @@ class VM
 	def add_part(disk, part)
 		@part = part
 		vmdk = File.join(basedir, 'part.vmdk')
-		puts vmdk
 		
 		system('sudo', 'VBoxManage', 'internalcommands', 'createrawvmdk',
 			'-filename', vmdk, '-rawdisk', disk, '-partitions', part.to_s)
@@ -70,7 +89,7 @@ class VM
 		out, err, status = Open3.capture3(env, *cmd)
 		unless status.success?
 			$stderr.print err
-			raise 'Error executing %s' % args.join(' ')
+			raise 'Error executing %s' % cmd.join(' ')
 		end
 		return out
 	end
