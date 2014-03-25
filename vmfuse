@@ -5,13 +5,14 @@ require 'open3'
 
 class VM
 	SSHPort = 22
+	SSHUserHost = 'root@localhost'
+	
 	VBoxDir = 'VirtualBox VMs'
 	
 	BaseVM = 'vmfuse'
 	BaseSnapshot = 'vmfuse'
 	Group = '/vmfuse'
 	SSHPF = 'vmfuse'
-	UserHost = 'root@localhost'
 	VMMountPoint = 'mnt'
 	
 	def create_name(base)
@@ -62,17 +63,25 @@ class VM
 	end
 	def manage(*args)
 		# TODO: Use VBOX_USER_HOME
-		cmd(['VBoxManage', *args]) or raise 'VBoxManage error'
+		cmd(['VBoxManage', *args])
 	end
-	def ssh(cmd, *args)
-		system(cmd, '-o', 'NoHostAuthenticationForLocalhost=yes', '-p', @port.to_s,
-			*args) or raise 'ssh error'
+	def ssh_opts
+		# Don't prompt user to check host identity
+		['-o', 'NoHostAuthenticationForLocalhost=yes', '-p', @port.to_s]
+	end
+	def ssh(*args)
+		cmd(['ssh', *ssh_opts, SSHUserHost, *args])
+	end
+	def sshfs(mountpoint)
+		# -f: Foreground
+		remote = SSHUserHost + ':' + VMMountPoint
+		cmd(['sshfs', *ssh_opts, '-f', remote, mountpoint])
 	end
 	
 	def mount(mountpoint, dev = nil)
 		dev ||= '/dev/sdb' + @part.to_s
 		manage('startvm', @name, '--type', 'headless')
-		ssh('ssh', UserHost, 'mount', dev, VMMountPoint)
+		ssh('mount', dev, VMMountPoint)
 		
 		mount_wait(mountpoint) { cleanup }
 	end
@@ -99,13 +108,9 @@ class VM
 		cleanup_block[]
 	end	
 	
-	def sshfs(mountpoint)
-		ssh('sshfs', '-f', UserHost + ':' + VMMountPoint, mountpoint)
-	end
-	
 	def cleanup
-		ssh('ssh', UserHost, 'umount', VMMountPoint)
-		ssh('ssh', UserHost, 'poweroff')
+		ssh('umount', VMMountPoint)
+		ssh('poweroff')
 		
 		begin
 			manage('unregistervm', @name, '--delete')
