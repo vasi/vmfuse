@@ -34,8 +34,8 @@ class VM
 	end
 	
 	def basedir
-		info = manage('showvminfo', @name)
-		config = info[/^Config file:\s*(.*)$/, 1] \
+		info = manage('showvminfo', '--machinereadable', @name)
+		config = info[/^CfgFile=\"(.*)\"$/, 1] \
 			or raise "Can't determine VM directory"
 		File.dirname(config)
 	end
