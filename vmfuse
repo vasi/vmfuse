@@ -1,6 +1,7 @@
 #!/usr/bin/ruby
 require 'pathname'
 require 'fileutils'
+require 'open3'
 
 class VM
 	SSHPort = 22
@@ -25,9 +26,9 @@ class VM
 		@name = create_name(BaseVM)
 		@port = choose_port
 		
-		vbox('clonevm', BaseVM, '--snapshot', BaseSnapshot,
+		manage('clonevm', BaseVM, '--snapshot', BaseSnapshot,
 			'--groups', Group, '--name', @name, '--options', 'link', '--register')
-		vbox('modifyvm', @name, '--natpf1',
+		manage('modifyvm', @name, '--natpf1',
 			SSHPF + ',tcp,,' + @port.to_s + ',,' + SSHPort.to_s)
 	end
 	
@@ -45,12 +46,21 @@ class VM
 		system('sudo', 'chown', '-R', Process.uid.to_s, basedir.to_s)
 		system('sudo', 'chown', Process.uid.to_s, disk + 's' + part.to_s)
 		
-		vbox('storageattach', @name, '--storagectl', 'SATA', '--port', '1',
+		manage('storageattach', @name, '--storagectl', 'SATA', '--port', '1',
 			'--type', 'hdd', '--medium', vmdk)
 	end
 	
-	def vbox(*args)
-		system('VBoxManage', *args) or raise 'VBoxManage error'
+	def cmd(cmd, env: {})
+		out, err, status = Open3.capture3(env, *cmd)
+		unless status.success?
+			$stderr.print err
+			raise 'Error executing %s' % args.join(' ')
+		end
+		return out
+	end
+	def manage(*args)
+		# TODO: Use VBOX_USER_HOME
+		cmd(['VBoxManage', *args]) or raise 'VBoxManage error'
 	end
 	def ssh(cmd, *args)
 		system(cmd, '-o', 'NoHostAuthenticationForLocalhost=yes', '-p', @port.to_s,
@@ -59,7 +69,7 @@ class VM
 	
 	def mount(mountpoint, dev = nil)
 		dev ||= '/dev/sdb' + @part.to_s
-		vbox('startvm', @name, '--type', 'headless')
+		manage('startvm', @name, '--type', 'headless')
 		ssh('ssh', UserHost, 'mount', dev, VMMountPoint)
 		
 		mount_wait(mountpoint) { cleanup }
@@ -96,7 +106,7 @@ class VM
 		ssh('ssh', UserHost, 'poweroff')
 		
 		begin
-			vbox('unregistervm', @name, '--delete')
+			manage('unregistervm', @name, '--delete')
 		rescue
 			sleep 1
 			retry

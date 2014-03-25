@@ -26,6 +26,7 @@ TODO
 * Auto-mount something useful if nothing specified
 * Choose a port more carefully
 * Allow multiple disks and/or mounts
+* Stop printing lots of info
 
 TEST
 * Do we unmount cleanly on host reboot?
