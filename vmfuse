@@ -15,9 +15,11 @@ class VM
 	VMMountPoint = 'mnt'
 	
 	def create_name(base)
+		# TODO: Check if it exists already?
 		base + '-' + rand(36**10).to_s(36)
 	end
 	def choose_port
+		# TODO: Check if port is in use?
 		1025 + rand(60000)
 	end
 	
