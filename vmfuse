@@ -54,6 +54,8 @@ class VM
 			'--type', 'hdd', '--medium', vmdk)
 	end
 	
+	# Run a command, optionally modifying the environment.
+	# Returns stdout. Suppresses stderr except in case of error.
 	def cmd(cmd, env: {})
 		out, err, status = Open3.capture3(env, *cmd)
 		unless status.success?
@@ -62,17 +64,26 @@ class VM
 		end
 		return out
 	end
+	
+	# Manage the VM with VBoxManage.
 	def manage(*args)
 		# TODO: Use VBOX_USER_HOME
 		cmd(['VBoxManage', *args])
 	end
+	
+	# Common options for SSH-related commands.
 	def ssh_opts
 		# Don't prompt user to check host identity
 		['-o', 'NoHostAuthenticationForLocalhost=yes', '-p', @port.to_s]
 	end
+	
+	# Run a command on the VM via SSH.
 	def ssh(*args)
 		cmd(['ssh', *ssh_opts, SSHUserHost, *args])
 	end
+	
+	# Mount the VM's vended directory onto `mountpoint`.
+	# Returns only on error, or when unmounted.
 	def sshfs(mountpoint)
 		# -f: Foreground
 		remote = SSHUserHost + ':' + VMMountPoint
