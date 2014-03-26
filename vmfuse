@@ -7,7 +7,6 @@ require 'timeout'
 
 class VM
 	VMHost = 'localhost'
-	
 	SSHPort = 22
 	SSHUserHost = 'root@' + VMHost
 		
@@ -17,8 +16,57 @@ class VM
 	SSHPF = 'vmfuse'
 	VMMountPoint = 'mnt'
 	
+	
+	# Run a command, optionally modifying the environment.
+	# Returns stdout. Suppresses stderr except in case of error.
+	def self.cmd(cmd, env: {})
+		out, err, status = Open3.capture3(env, *cmd)
+		unless status.success?
+			$stderr.print err
+			raise 'Error executing %s' % cmd.join(' ')
+		end
+		return out
+	end
+	
+	# Manage the VM with VBoxManage.
+	def self.manage(*args)
+		cmd(['VBoxManage', *args])
+	end
+	
+	# Get names of all existing VMs
+	def self.all_vms
+		manage('list', 'vms').scan(/^"(.*)" \{[-\h]+\}/)
+	end
+	
+	def manage(*args)
+		# TODO: Use VBOX_USER_HOME
+		self.class.manage(*args)
+	end
+	
+	
+	# Common options for SSH-related commands.
+	def ssh_opts
+		# Don't prompt user to check host identity
+		['-o', 'NoHostAuthenticationForLocalhost=yes', '-p', @port.to_s]
+	end
+	
+	# Run a command on the VM via SSH.
+	def ssh(*args)
+		self.class.cmd(['ssh', *ssh_opts, SSHUserHost, *args])
+	end
+	
+	# Mount the VM's vended directory onto `mountpoint`.
+	# Returns only on error, or when unmounted.
+	def sshfs(mountpoint)
+		# -f: Foreground
+		remote = SSHUserHost + ':' + VMMountPoint
+		self.class.cmd(['sshfs', *ssh_opts, '-f', remote, mountpoint])
+	end
+	
+	
+	
 	# Choose a name for the temporary VM
-	def choose_name(base)
+	def self.choose_name(base)
 		suffix_length = 10
 		suffix_base = 36
 		
@@ -30,7 +78,7 @@ class VM
 	end
 	
 	# Choose an unused port to access the VM via SSH
-	def choose_port
+	def self.choose_port
 		port_range = 1024..65535
 		connect_timeout = 1
 		
@@ -45,10 +93,11 @@ class VM
 		end
 	end
 	
+	
 	attr_reader :name, :port
 	def initialize
-		@name = choose_name(BaseVM)
-		@port = choose_port
+		@name = self.class.choose_name(BaseVM)
+		@port = self.class.choose_port
 		
 		manage('clonevm', BaseVM, '--snapshot', BaseSnapshot,
 			'--groups', Group, '--name', @name, '--options', 'link', '--register')
@@ -65,11 +114,6 @@ class VM
 		File.dirname(config)
 	end
 	
-	# Get names all existing VMs
-	def all_vms
-		manage('list', 'vms').scan(/^"(.*)" \{[-\h]+\}/)
-	end
-	
 	def add_part(disk, part)
 		@part = part
 		vmdk = File.join(basedir, 'part.vmdk')
@@ -81,42 +125,6 @@ class VM
 		
 		manage('storageattach', @name, '--storagectl', 'SATA', '--port', '1',
 			'--type', 'hdd', '--medium', vmdk)
-	end
-	
-	# Run a command, optionally modifying the environment.
-	# Returns stdout. Suppresses stderr except in case of error.
-	def cmd(cmd, env: {})
-		out, err, status = Open3.capture3(env, *cmd)
-		unless status.success?
-			$stderr.print err
-			raise 'Error executing %s' % cmd.join(' ')
-		end
-		return out
-	end
-	
-	# Manage the VM with VBoxManage.
-	def manage(*args)
-		# TODO: Use VBOX_USER_HOME
-		cmd(['VBoxManage', *args])
-	end
-	
-	# Common options for SSH-related commands.
-	def ssh_opts
-		# Don't prompt user to check host identity
-		['-o', 'NoHostAuthenticationForLocalhost=yes', '-p', @port.to_s]
-	end
-	
-	# Run a command on the VM via SSH.
-	def ssh(*args)
-		cmd(['ssh', *ssh_opts, SSHUserHost, *args])
-	end
-	
-	# Mount the VM's vended directory onto `mountpoint`.
-	# Returns only on error, or when unmounted.
-	def sshfs(mountpoint)
-		# -f: Foreground
-		remote = SSHUserHost + ':' + VMMountPoint
-		cmd(['sshfs', *ssh_opts, '-f', remote, mountpoint])
 	end
 	
 	def mount(mountpoint, dev = nil)
