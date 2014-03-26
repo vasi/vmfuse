@@ -25,6 +25,7 @@ TODO
 * Auto-mount something useful if nothing specified
 * Allow multiple disks and/or mounts
 * Stop printing lots of info
+* Cleanup on failures! Delete VM, poweroff if necessary...
 
 TEST
 * Do we unmount cleanly on host reboot?
