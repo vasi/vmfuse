@@ -1,5 +1,4 @@
 #!/usr/bin/ruby
-require 'pathname'
 require 'fileutils'
 require 'open3'
 require 'socket'
@@ -9,12 +8,46 @@ class VM
 	VMHost = 'localhost'
 	SSHPort = 22
 	SSHUserHost = 'root@' + VMHost
+	
+	SSHPF = 'vmfuse'		# Name of port forwarding rule
+	VMMountPoint = 'mnt'	# Mount point inside the guest
+	VMGroup = '/vmfuse'		# VM group to put a new VM in
+	VMDiskName = 'part'		# Name of the virtual disk to create
+	
+	attr_reader :name, :port
+	
+	
+	# Try something again and again until it succeeds, or we run out of time
+	def self.try_sleeping
+		# CONSTANTS
+		sleep_interval = 1
+		sleep_max = 30
 		
-	BaseVM = 'vmfuse'
-	BaseSnapshot = 'vmfuse'
-	Group = '/vmfuse'
-	SSHPF = 'vmfuse'
-	VMMountPoint = 'mnt'
+		Timeout.timeout(sleep_max) do
+			loop do
+				yield and return
+				sleep sleep_interval
+			end
+		end
+	end
+	
+	# Run a command in the background, and let another process track its status.
+	# Returns an object `bg` such that bg.wait will return only once the background
+	# process is done. This works even if the eventual process that calls wait is not
+	# related to the background process.
+	BackgroundWaiter = Struct.new(:fd) { def wait; fd.read; end }
+	def self.background
+		r, w = IO.pipe
+		
+		fork do
+			r.close
+			yield
+			w.close # alert the other process
+		end
+		
+		w.close
+		return BackgroundWaiter.new(r)
+	end
 	
 	
 	# Run a command, optionally modifying the environment.
@@ -28,19 +61,14 @@ class VM
 		return out
 	end
 	
-	# Manage the VM with VBoxManage.
-	def self.manage(*args)
-		cmd(['VBoxManage', *args])
-	end
-	
-	# Get names of all existing VMs
-	def self.all_vms
-		manage('list', 'vms').scan(/^"(.*)" \{[-\h]+\}/)
-	end
-	
 	def manage(*args)
 		# TODO: Use VBOX_USER_HOME
-		self.class.manage(*args)
+		self.class.cmd(['VBoxManage', *args])
+	end
+
+	# Get names of all existing VMs
+	def all_vms
+		manage('list', 'vms').scan(/^"(.*)" \{[-\h]+\}/)
 	end
 	
 	
@@ -64,9 +92,9 @@ class VM
 	end
 	
 	
-	
 	# Choose a name for the temporary VM
-	def self.choose_name(base)
+	def choose_name(base)
+		# CONSTANTS
 		suffix_length = 10
 		suffix_base = 36
 		
@@ -78,7 +106,8 @@ class VM
 	end
 	
 	# Choose an unused port to access the VM via SSH
-	def self.choose_port
+	def choose_port
+		# CONSTANTS
 		port_range = 1024..65535
 		connect_timeout = 1
 		
@@ -94,15 +123,11 @@ class VM
 	end
 	
 	
-	attr_reader :name, :port
-	def initialize
-		@name = self.class.choose_name(BaseVM)
-		@port = self.class.choose_port
-		
-		manage('clonevm', BaseVM, '--snapshot', BaseSnapshot,
-			'--groups', Group, '--name', @name, '--options', 'link', '--register')
-		manage('modifyvm', @name, '--natpf1',
-			SSHPF + ',tcp,,' + @port.to_s + ',,' + SSHPort.to_s)
+	# Clone the VM from the base
+	def clone(base_vm, base_snapshot, new_name)
+		manage('clonevm', base_vm, '--snapshot', base_snapshot,
+			'--groups', VMGroup, '--name', new_name, '--options', 'link', '--register')
+		@name = new_name
 	end
 	
 	# Find the directory where the VM's files are stored.
@@ -114,63 +139,105 @@ class VM
 		File.dirname(config)
 	end
 	
-	def add_part(disk, part)
-		@part = part
-		vmdk = File.join(basedir, 'part.vmdk')
+	# Forward a port on the host to SSH on the guest
+	def port_forward(host_port)
+		pf_desc = '%s,tcp,,%s,,%s' % [SSHPF, host_port, SSHPort]
+		manage('modifyvm', @name, '--natpf1', pf_desc)
+		@port = host_port
+	end
+	
+	# Attach a disk to the VM
+	def attach_disk(path)
+		manage('storageattach', @name, '--storagectl', 'SATA', '--port', '1',
+			'--type', 'hdd', '--medium', path)
+	end
+	
+	# Create a virtual disk that references a raw partition
+	def create_raw_disk(name, disk, partition)
+		# TODO: Do something better about root privileges
+		path = File.join(basedir, '%s.vmdk' % name)
 		
 		system('sudo', 'VBoxManage', 'internalcommands', 'createrawvmdk',
-			'-filename', vmdk, '-rawdisk', disk, '-partitions', part.to_s)
-		system('sudo', 'chown', '-R', Process.uid.to_s, basedir.to_s)
-		system('sudo', 'chown', Process.uid.to_s, disk + 's' + part.to_s)
+			'-filename', path, '-rawdisk', disk, '-partitions', partition.to_s) \
+			or raise "Failure creating raw disk"
 		
-		manage('storageattach', @name, '--storagectl', 'SATA', '--port', '1',
-			'--type', 'hdd', '--medium', vmdk)
+		# Ensure we can access the partition as non-root
+		uid = Process.uid.to_s
+		system('sudo', 'chown', '-R', uid, basedir.to_s)
+		# TODO: This only works on OS X
+		system('sudo', 'chown', uid, disk + 's' + partition.to_s)
+		
+		return path
 	end
 	
-	def mount(mountpoint, dev = nil)
-		dev ||= '/dev/sdb' + @part.to_s
+	# Start the virtual machine
+	def guest_start
 		manage('startvm', @name, '--type', 'headless')
-		ssh('mount', dev, VMMountPoint)
-		
-		mount_wait(mountpoint) { cleanup }
 	end
-
-	def mount_wait(mountpoint, &cleanup_block)
-		dev = File.stat(mountpoint).dev
-
-		r, w = IO.pipe
-		
-		# This process runs sshfs, and then alerts our daemon on exit
-		fork do
-			r.close
-			sshfs(mountpoint)
-			w.close # alert daemon
-		end
-		
-		w.close
-		# Wait for mount to complete
-		loop { dev == File.stat(mountpoint).dev or break }
-		
-		Process.daemon
-		r.read
-		r.close
-		cleanup_block[]
+	def guest_stop
+		ssh('poweroff')
 	end	
 	
-	def cleanup
+	# Mount a device in the guest
+	def guest_mount(guest_device)
+		ssh('mount', guest_device, VMMountPoint)
+	end
+	def guest_unmount
 		ssh('umount', VMMountPoint)
-		ssh('poweroff')
-		
-		begin
-			manage('unregistervm', @name, '--delete')
-		rescue
-			sleep 1
-			retry
+	end
+	
+	# Delete this virtual machine
+	def delete
+		# Sleep until VM is powered off
+		self.class.try_sleeping do
+			manage('unregistervm', @name, '--delete') rescue false
 		end
-		FileUtils.rm_r(basedir) if File.exist?(basedir)
+	end
+	
+	# Mount in the background, only return once the mount is done.
+	def mount_wait(mountpoint)
+		# When mount succeeds, device of mountpoint will differ
+		dev = ->{ File.stat(mountpoint).dev }
+		orig_dev = dev[]
+		
+		bg = self.class.background { sshfs(mountpoint) }	
+		
+		self.class.try_sleeping { dev[] != orig_dev }
+		return bg
+	end
+	
+	
+	# Create a new, minimally configured clone VM
+	def initialize(base_vm, base_snapshot)
+		clone(base_vm, base_snapshot, choose_name(base_vm))
+		port_forward(choose_port)
+	end
+	
+	# Add a raw disk to the VM
+	def attach_raw_disk(disk, part)
+		vdisk = create_raw_disk(VMDiskName, disk, part)
+		attach_disk(vdisk)
+	end
+	
+	# Do everything required to clean up once sshfs exits 
+	def cleanup
+		guest_unmount
+		guest_stop
+		delete
+	end
+	
+	# Mount the raw disk on the host, daemonize, and cleanup on unmount
+	def mount(guest_device, mountpoint)
+		guest_start
+		guest_mount(guest_device)
+		bg = mount_wait(mountpoint)
+		
+		Process.daemon
+		bg.wait
+		cleanup
 	end
 end
 
-vm = VM.new
-vm.add_part('/dev/disk0', 8)
-vm.mount('mnt', '/dev/fedora_hastings/root')
+vm = VM.new('vmfuse', 'vmfuse')
+vm.attach_raw_disk('/dev/disk0', 8)
+vm.mount('/dev/fedora_hastings/root', 'mnt')
