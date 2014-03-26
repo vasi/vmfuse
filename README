@@ -4,6 +4,7 @@ TODO
 	- Purpose
 	- Usage
 	- Compare to libguestfs
+	- Caveats
 * Don't hard-code things
 	- host mountpoint
 	- disk/partition/image to add to VM
@@ -16,6 +17,7 @@ TODO
 	- Pass things through to sshfs
 * Document VM creation: sudo, ssh, auth keys, persistent MAC, mountpoint, snapshot
 * Use smaller VM (TinyCore)
+	- Fix udev problem?
 * Work with non-raw media: Don't create raw VMDK if given an image
 	- Don't delete existing image!
 * Work on Linux hosts
