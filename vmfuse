@@ -18,15 +18,13 @@ class VM
 	
 	
 	# Try something again and again until it succeeds, or we run out of time
+	SleepInterval = 1
+	SleepMax = 30
 	def self.try_sleeping
-		# CONSTANTS
-		sleep_interval = 1
-		sleep_max = 30
-		
-		Timeout.timeout(sleep_max) do
+		Timeout.timeout(SleepMax) do
 			loop do
 				yield and return
-				sleep sleep_interval
+				sleep SleepInterval
 			end
 		end
 	end
@@ -93,28 +91,25 @@ class VM
 	
 	
 	# Choose a name for the temporary VM
+	NameSuffixLength = 10
+	NameSuffixBase = 36
 	def choose_name(base)
-		# CONSTANTS
-		suffix_length = 10
-		suffix_base = 36
-		
 		loop do
-			name = base + '-' + rand(suffix_base ** suffix_length).to_s(suffix_base)
+			name = base + '-' + rand(NameSuffixBase ** NameSuffixLength).
+				to_s(NameSuffixBase)
 			# Short race condition between name choice and creation
 			return name unless all_vms.include? name
 		end
 	end
 	
 	# Choose an unused port to access the VM via SSH
+	PortUser = 1024..65535
+	PortConnectTimeout = 1
 	def choose_port
-		# CONSTANTS
-		port_range = 1024..65535
-		connect_timeout = 1
-		
 		loop do
 			begin
-				port = rand(port_range)
-				Timeout::timeout(connect_timeout) { TCPSocket.new(VMHost, port) }
+				port = rand(PortUser)
+				Timeout::timeout(PortConnectTimeout) { TCPSocket.new(VMHost, port) }
 				# It's in use, loop again
 			rescue Timeout::Error, Errno::ECONNREFUSED, Errno::EHOSTUNREACH
 				return port # We found an unused port!
