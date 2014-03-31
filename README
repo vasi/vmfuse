@@ -13,7 +13,7 @@ Requirements
 * Ruby 2.0 or higher
 * FUSE and sshfs
 * VirtualBox, including command-line tools
-* A 'VMfuse Intermediary' virtual machine that can read filesystems of the type you're interested in mounting.
+* A 'VMfuse Intermediary' virtual machine that can mount filesystems of the type you're interested in mounting.
 
 
 Usage
@@ -30,10 +30,85 @@ To mount an LVM volume:
 To unmount, just do whatever your FUSE implementation prefers, either 'umount mnt' or 'fusermount -u mnt'.
 
 
-Constructing a VMfuse Intermediary
-----------------------------------
+Creating a VMfuse Intermediary
+------------------------------
 
-TODO
+A VMfuse Intermediary (VFI) is a VirtualBox virtual machine set up such that vmfuse can use it. The VM must have:
+
+- The ability to mount whatever filesystem types you're interested in.
+- A SSH server running on port 80, with SFTP capability.
+- Root login enabled via SSH public key authentication.
+- An empty directory 'mnt' in root's home folder.
+- A snapshot on which to base VMfuse clones.
+
+
+You can setup a VFI using any guest OS you like. I recommend TinyCore Linux, since it has an extremely small disk space footprint of about 30 MiB. Detailed instructions for setting up a TinyCore VFI:
+
+
+1. Configure a new VM
+
+1a. Create the VM: In VirtualBox, choose Machine -> New. Name your VM 'vmfuse', and give it the type 'Linux 2.6 / 3.x (32-bit)'. Assign it 256 MB of RAM, and a 1 GB dynamically allocated disk.
+
+1b. Organize the VM: Choose Machine -> Group to put your new VM in the VM group 'vmfuse', so you can easily find it.
+
+1c. Setup SSH port forwarding: In the Network tab of VM settings, open the Advanced disclosure triangle, and click Port Forwarding. Add a rule with the name 'ssh', Host Port of 22001, and Guest Port of 22.
+
+
+2. Do a 'frugal' install of TinyCore
+
+2a. Download TinyCore: Get the minimal "Core" ISO for TinyCore: http://distro.ibiblio.org/tinycorelinux/downloads.html . I'm using version 5.2.
+
+2b. Boot into TinyCore: Start your VM. When prompted, select the ISO you downloaded earlier.
+
+2c. Get the TinyCore installer: 'tce-load -iw tc-install'
+
+2d. Install TinyCore: 'sudo tc-install.sh'. At the prompts, choose an install from CD-ROM, of the 'frugal' type, onto the whole disk 'sda'. Choose to install a bootloader, and use ext4 for the type of filesystem. For boot options, enter 'opt=sda1 home=sda'.
+
+2e. Complete the install: Type 'sudo poweroff', and detach the ISO from the VM.
+
+
+3. Setup TinyCore for SSH
+
+3a. Set a root password: Boot the VM, type 'sudo passwd', and enter a password at the prompt.
+
+3b. Remove the auto-login functionality for root: 'sudo rm /root/.profile; sudo touch /root/.profile'
+
+3c. Install SSH: 'tce-load -iw openssh'
+
+3d. Configure SSH: 'sudo cp /usr/local/etc/ssh/sshd_config.example /usr/local/etc/ssh/sshd_config'
+
+3e. Automatically start SSH: 'echo /usr/local/etc/init.d/openssh start >> /opt/bootlocal.sh'
+
+3f. Preserve the new settings: '(echo usr/local/etc/ssh; echo etc/shadow; echo root) >> /opt/.filetool.lst; filetool.sh -b; sudo reboot'
+
+3g. Acquire a SSH key on your host OS. You may already have one in ~/.ssh/id_rsa. If not, run 'ssh-keygen' to generate one.
+
+3h. Fix the permissions on /root: 'sudo chown root:root /root; sudo chmod 700 /root'
+
+3i. Setup automatic login on the guest. On most host OSes, you can just run:
+'ssh-copy-id "-o NoHostAuthenticationForLocalhost=yes -p 22001 root@localhost"'. Type the password when prompted. Then, run 'filetool.sh -b' on the guest, to preserve the automatic login setting.
+
+3j. Verify automatic login: Run 'ssh -o NoHostAuthenticationForLocalhost=yes -p 22001 root@localhost', and you should be logged in as root with no password prompt.
+
+
+4. Enable LVM
+
+4a. Install LVM: 'sudo -u tc tce-load -iw lvm2'
+
+4b. Automatically enable LVM disks: 'echo /usr/local/sbin/vgchange -ay start >> /opt/bootlocal.sh'
+
+4c. Preserve the new settings: 'filetool.sh -b'
+
+
+5. Final setup for VMfuse
+
+5a. Make boot faster: Edit /mnt/sda1/tce/boot/extlinux/extlinux.conf, and remove the waitusb=5:UUID... entry, up to the nearest space.
+
+5b. Ensure a 'mnt' directory exists: 'echo mkdir /root/mnt >> /opt/bootlocal.sh'
+
+5c. Preserve the new settings: 'filetool.sh -b'
+
+5d. Take a snapshot: Type 'poweroff', take a new snapshot, and name it 'vmfuse'.
 
 
 Limitations

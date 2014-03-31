@@ -32,12 +32,6 @@
 			- VG may need multiple PVs
 	- Auto-mounting?
 
-* Document creation of VMfuse Intermediary
-	- Ubuntu
-	- TinyCore
-		- Fix udev problem (slow boot)
-	- Steps: sudo, ssh, auth keys, persistent MAC, mountpoint, snapshot...
-
 * Permissions
 	- We want to run VBox as user, but some things need extra permissions
 		- Invoke sudo?
