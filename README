@@ -13,23 +13,32 @@ TODO
 	- VM group
 	- SSH key
 * Take command-line arguments
-	- Use config file too
-	- Pass things through to sshfs
-* Document VM creation: sudo, ssh, auth keys, persistent MAC, mountpoint, snapshot
-* Use smaller VM (TinyCore)
-	- Fix udev problem?
+	- Use config file too?
+	- Pass options through to sshfs?
+* Document VM creation
+	- Base: TinyCore, other
+		- TinyCore has udev problem?
+	- sudo, ssh, auth keys, persistent MAC, mountpoint, snapshot
 * Work with non-raw media: Don't create raw VMDK if given an image
-	- Don't delete existing image!
+	- Don't delete original image!
 * Work on Linux hosts
-* Minimize use of sudo: Can probably create VMDK without it on OS X
+* Permissions
+	- Device may need to be user-owned
+		- Revert ownership on exit?
+	- Need access to whole disk to generate raw disk
+		- Raw disk needs to be chowned to user
+		- Cache it?
+	- sudo: Automatically invoke? Drop permissions?
 * Auto-mount something useful if nothing specified
-* Allow multiple disks and/or mounts
-* Stop printing lots of info
+* Work multiple disks and/or mounts?
+* Don't print extraneous info
 * Cleanup on failures! Delete VM, poweroff if necessary...
+	* Poll mountpoint?
+* Allow specifying partition device, not host + partition number
 
 TEST
 * Do we unmount cleanly on host reboot?
-* Can multiple separate mounts happen at the same time?
+* Can multiple separate mounts happen at the same time? Should work...
 
 BUGS
 * sshfs has trouble with permission mapping, new files are owned by root
