@@ -6,9 +6,6 @@ TODO
 	- Compare to libguestfs
 	- Caveats
 * Don't hard-code things
-	- host mountpoint
-	- disk/partition/image to add to VM
-	- device to mount in guest
 	- base VM name
 	- VM group
 	- SSH key
@@ -38,7 +35,6 @@ TODO
 
 TEST
 * Do we unmount cleanly on host reboot?
-* Can multiple separate mounts happen at the same time? Should work...
 
 BUGS
 * sshfs has trouble with permission mapping, new files are owned by root

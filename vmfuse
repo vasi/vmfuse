@@ -233,6 +233,8 @@ class VM
 	end
 end
 
+disk, part_number, guest_device, mountpoint = *ARGV
+
 vm = VM.new('vmfuse', 'vmfuse')
-vm.attach_raw_disk('/dev/disk0', 8)
-vm.mount('/dev/fedora_hastings/root', 'mnt')
+vm.attach_raw_disk(disk, part_number.to_i)
+vm.mount(guest_device, mountpoint)
