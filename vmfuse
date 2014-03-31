@@ -109,7 +109,9 @@ class VM
 		loop do
 			begin
 				port = rand(PortUser)
-				Timeout::timeout(PortConnectTimeout) { TCPSocket.new(VMHost, port) }
+				Timeout::timeout(PortConnectTimeout) do
+					TCPSocket.new(VMHost, port)
+				end
 				# It's in use, loop again
 			rescue Timeout::Error, Errno::ECONNREFUSED, Errno::EHOSTUNREACH
 				return port # We found an unused port!
@@ -121,7 +123,8 @@ class VM
 	# Clone the VM from the base
 	def clone(base_vm, base_snapshot, new_name)
 		manage('clonevm', base_vm, '--snapshot', base_snapshot,
-			'--groups', VMGroup, '--name', new_name, '--options', 'link', '--register')
+			'--groups', VMGroup, '--name', new_name,
+			'--options', 'link', '--register')
 		@name = new_name
 	end
 	
@@ -153,7 +156,8 @@ class VM
 		path = File.join(basedir, '%s.vmdk' % name)
 		
 		system('sudo', 'VBoxManage', 'internalcommands', 'createrawvmdk',
-			'-filename', path, '-rawdisk', disk, '-partitions', partition.to_s) \
+			'-filename', path, '-rawdisk', disk,
+			'-partitions', partition.to_s) \
 			or raise "Failure creating raw disk"
 		
 		# Ensure we can access the partition as non-root

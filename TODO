@@ -27,7 +27,9 @@
 		- Guest device name
 		- VM base, given desired FS format?
 	- Allow multiple host devices, guest devices, mountpoints
-		- Useful for LVM: Only one VM at a time can own PV; VG may need multiple PVs
+		- Useful for LVM
+			- Only one VM at a time can own PV
+			- VG may need multiple PVs
 	- Auto-mounting?
 
 * Document creation of VMfuse Intermediary
