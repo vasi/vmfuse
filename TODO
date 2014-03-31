@@ -1,0 +1,73 @@
+* Bugs
+	- Don't print anything on success
+
+* Robustness
+	- Test that host shutdown unmounts safely
+	- Test failure conditions
+		- No target mountpoint
+		- VM creation fails
+		- Guest boot fails
+		- Guest mount fails
+		- SSH/sshfs fails
+	- Ensure VM is properly shutdown, even if something goes wrong
+		- Poll for unmount?
+	- Don't print extraneous output
+
+* Useful options
+	- Target volume arguments
+		- Specify combined disk/index, not separate arguments
+		- Allow full disk
+		- Allow disk images
+	- VM arguments
+		- VM base
+		- VM snapshot
+	- Help option should provide usage help
+	- Use a config file for some arguments
+	- Automatically determine some parameters
+		- Guest device name
+		- VM base, given desired FS format?
+	- Allow multiple host devices, guest devices, mountpoints
+		- Useful for LVM: Only one VM at a time can own PV; VG may need multiple PVs
+	- Auto-mounting?
+
+* Document creation of VMfuse Intermediary
+	- Ubuntu
+	- TinyCore
+		- Fix udev problem (slow boot)
+	- Steps: sudo, ssh, auth keys, persistent MAC, mountpoint, snapshot...
+
+* Permissions
+	- We want to run VBox as user, but some things need extra permissions
+		- Invoke sudo?
+		- Optionally drop permissions if run using sudo?
+	- Raw disk creation needs full disk access
+		- Cache previous results?
+	- Access to disk itself needs permissions
+		- Chown and revert on cleanup?
+	- Solve issue with root-owned files on guest
+
+* Portability
+	- Non-Linux guests
+		- FreeBSD (UFS)
+		- Dragonfly BSD (HAMMER)
+		- Mac OS X (HFS+)
+		- Solaris (ZFS pool version > 28)
+	- Non-Mac hosts
+		- Linux
+		- FreeBSD
+
+* Less useful options
+	- Potential
+		- VM group for clones
+		- Custom guest mount command
+		- Extra SSH/sshfs options, like key file
+		- VBox home dir
+	- These should probably be part of VM setup, not options
+		- Guest mountpoint
+		- Guest user
+		- Guest SSH port
+		- Port forwarding rule name
+	- Unlikely to be useful at all
+		- VM host, should always be localhost
+		- VMDK basename
+		- Sleep interval/maximum

@@ -1,41 +1,69 @@
+VMfuse - Mount foreign filesystems using VirtualBox
+
+What is it?
+-----------
+
+Each OS can understand only certain filesystem and logical volume formats, and not others. But sometimes you really wish your Mac could understand LVM volumes, or your FreeBSD box could mount a btrfs partition, or Linux could write to HFS+ or HAMMER. VMfuse uses lightweight VirtualBox clones to make this possible.
+
+
+Requirements
+------------
+
+* A Unixy host: Linux, Mac OS X, BSD, etc
+* Ruby 2.0 or higher
+* FUSE and sshfs
+* VirtualBox, including command-line tools
+* A 'VMfuse Intermediary' virtual machine that can read filesystems of the type you're interested in mounting.
+
+
+Usage
+-----
+
+To mount the filesystem on /dev/disk0s7:
+
+  $ vmfuse /dev/disk0 7 /dev/sdb7 mnt
+
+To mount an LVM volume:
+
+  $ vmfuse /dev/disk0 8 /dev/vg-host/lv-root mnt
+
+To unmount, just do whatever your FUSE implementation prefers, either 'umount mnt' or 'fusermount -u mnt'.
+
+
+Constructing a VMfuse Intermediary
+----------------------------------
+
 TODO
-* Add real README, LICENSE
-	- Dependencies
-	- Purpose
-	- Usage
-	- Compare to libguestfs
-	- Caveats
-* Don't hard-code things
-	- base VM name
-	- VM group
-	- SSH key
-* Take command-line arguments
-	- Use config file too?
-	- Pass options through to sshfs?
-* Document VM creation
-	- Base: TinyCore, other
-		- TinyCore has udev problem?
-	- sudo, ssh, auth keys, persistent MAC, mountpoint, snapshot
-* Work with non-raw media: Don't create raw VMDK if given an image
-	- Don't delete original image!
-* Work on Linux hosts
-* Permissions
-	- Device may need to be user-owned
-		- Revert ownership on exit?
-	- Need access to whole disk to generate raw disk
-		- Raw disk needs to be chowned to user
-		- Cache it?
-	- sudo: Automatically invoke? Drop permissions?
-* Auto-mount something useful if nothing specified
-* Work multiple disks and/or mounts?
-* Don't print extraneous info
-* Cleanup on failures! Delete VM, poweroff if necessary...
-	* Poll mountpoint?
-* Allow specifying partition device, not host + partition number
 
-TEST
-* Do we unmount cleanly on host reboot?
 
-BUGS
-* sshfs has trouble with permission mapping, new files are owned by root
-* Boot is slow, can it be made faster?
+Limitations
+-----------
+
+* Currently only working on OS X hosts. Others to follow.
+
+* Currently only tested with Linux intermediaries. Others should work, too.
+
+* Very limited configurability, so far.
+
+* Permissions on the mounted volume may appear odd, because of uid/gid mismatches. Files you create on the volume will be root-owned, even if you're not root.
+
+* Root permissions are required. Currently vmfuse uses sudo to prompt for permissions.
+
+* Currently only works on physical disks, not disk images.
+
+
+Alternatives
+------------
+
+* Native filesystem drivers: These work very well for very common OS/filesystem combinations. They have much, much less overhead than vmfuse. But for less common filesystems, drivers may not exist for your OS. Or they may be flaky, crashing your OS or corrupting your filesystem.
+
+
+* FUSE drivers: These still have lower overhead. But they also don't exist for all filesystem types.
+
+
+* libguestfs: Using what libguestfs calls a 'fixed appliance', libguestfs and guestmount can potentially access filesystems that your OS doesn't understand. Libguestfs is more secure and polished than vmfuse.
+
+However, fixed appliances are not the default, and it can be hard to set them up properly. They must match the version of libguestfs, so upgrades are difficult. Fixed appliances require huge sparse files, which aren't well supported on OS X. On non-Linux hosts, libguestfs is very slow. It also has many, many dependencies.
+
+
+* Virtual machines: You can manually attach a physical disk to a virtual machine, and then access it inside the VM. This generally requires a much heavier-weight VM than vmfuse, and manual intervention.
