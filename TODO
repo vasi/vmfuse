@@ -1,14 +1,3 @@
-- Rewrite in Python/vboxapi
-	- Can wait for VM to close
-- Have VMs poweroff themselves when sshfs disconnects
-	- Use sshd_config ForceCommand wrapper
-	- Should work even if host shuts down
-- Use kqueue/inotify/polling/fam to wait for unmount, just to be sure
-	- Check if same FS with st_dev
-	- How to check for disconnect/hang in sshfs?
-- Search for old VMs and auto-cleanup
-
-
 * Bugs
 	- Don't print anything on success
 
@@ -20,9 +9,13 @@
 		- Guest boot fails
 		- Guest mount fails
 		- SSH/sshfs fails
+		- Asked for password (no pubkey)
+		- Terminal goes away
 	- Ensure VM is properly shutdown, even if something goes wrong
 		- Poll for unmount?
+	- Ensure old VMs are cleaned up
 	- Don't print extraneous output
+	- Use vboxapi?
 
 * Useful options
 	- Target volume arguments
