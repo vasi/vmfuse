@@ -229,6 +229,9 @@ class VM
 	# Mount the raw disk on the host, daemonize, and cleanup on unmount
 	def mount(guest_device, type, mountpoint)
 		guest_start
+		
+		sleep 6 # FIXME: let the guest initialize network, for speed
+		
 		guest_mount(guest_device, type)
 		bg = mount_wait(mountpoint)
 		
