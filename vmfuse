@@ -178,8 +178,9 @@ class VM
 	end	
 	
 	# Mount a device in the guest
-	def guest_mount(guest_device)
-		ssh('mount', guest_device, VMMountPoint)
+	def guest_mount(guest_device, type = nil)
+		type_args = type ? ['-t', type] : []
+		ssh('mount', *type_args, guest_device, VMMountPoint)
 	end
 	def guest_unmount
 		ssh('umount', VMMountPoint)
@@ -226,9 +227,9 @@ class VM
 	end
 	
 	# Mount the raw disk on the host, daemonize, and cleanup on unmount
-	def mount(guest_device, mountpoint)
+	def mount(guest_device, type, mountpoint)
 		guest_start
-		guest_mount(guest_device)
+		guest_mount(guest_device, type)
 		bg = mount_wait(mountpoint)
 		
 		Process.daemon
@@ -237,8 +238,8 @@ class VM
 	end
 end
 
-disk, part_number, guest_device, mountpoint = *ARGV
+disk, part_number, guest_device, type, mountpoint = *ARGV
 
 vm = VM.new('vmfuse', 'vmfuse')
 vm.attach_raw_disk(disk, part_number.to_i)
-vm.mount(guest_device, mountpoint)
+vm.mount(guest_device, type, mountpoint)

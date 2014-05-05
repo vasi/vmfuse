@@ -19,13 +19,13 @@ Requirements
 Usage
 -----
 
-To mount the filesystem on /dev/disk0s7:
+To mount the XFS filesystem on /dev/disk0s7:
 
-  $ vmfuse /dev/disk0 7 /dev/sdb7 mnt
+  $ vmfuse /dev/disk0 7 /dev/sdb7 xfs mnt
 
-To mount an LVM volume:
+To mount an ext4 LVM volume:
 
-  $ vmfuse /dev/disk0 8 /dev/vg-host/lv-root mnt
+  $ vmfuse /dev/disk0 8 /dev/vg-host/lv-root ext4 mnt
 
 To unmount, just do whatever your FUSE implementation prefers, either 'umount mnt' or 'fusermount -u mnt'.
 
@@ -100,8 +100,7 @@ You can setup a VFI using any guest OS you like. I recommend TinyCore Linux, sin
 4c. Preserve the new settings: 'filetool.sh -b'
 
 4d. Install other filesystem drivers:
-	'sudo -u tc tce-load -iw filesystems-3.8.13-tinycore'
-
+	'sudo -u tc tce-load -iw filesystems-$(uname -e)'
 
 5. Final setup for VMfuse
 
