@@ -1,3 +1,7 @@
+* Speed
+	- SSHFS delay?
+	- Hotplug, one VM for multiple disks
+
 * Bugs
 	- Don't print anything on success
 
@@ -22,6 +26,7 @@
 		- Specify combined disk/index, not separate arguments
 		- Allow full disk
 		- Allow disk images
+		- Allow specifying type
 	- VM arguments
 		- VM base
 		- VM snapshot
@@ -35,6 +40,7 @@
 			- Only one VM at a time can own PV
 			- VG may need multiple PVs
 	- Auto-mounting?
+	- FS type detection?
 
 * Permissions
 	- We want to run VBox as user, but some things need extra permissions
