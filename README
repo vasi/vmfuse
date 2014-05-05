@@ -91,13 +91,16 @@ You can setup a VFI using any guest OS you like. I recommend TinyCore Linux, sin
 3j. Verify automatic login: Run 'ssh -o NoHostAuthenticationForLocalhost=yes -p 22001 root@localhost', and you should be logged in as root with no password prompt.
 
 
-4. Enable LVM
+4. Enable more filesystems
 
 4a. Install LVM: 'sudo -u tc tce-load -iw lvm2'
 
 4b. Automatically enable LVM disks: 'echo /usr/local/sbin/vgchange -ay start >> /opt/bootlocal.sh'
 
 4c. Preserve the new settings: 'filetool.sh -b'
+
+4d. Install other filesystem drivers:
+	'sudo -u tc tce-load -iw filesystems-3.8.13-tinycore'
 
 
 5. Final setup for VMfuse
